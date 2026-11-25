@@ -1,5 +1,5 @@
-const cacheName = 'arah-v4';
-const shell = ['./', './index.html', './style.css?v=4', './app.mjs?v=4', './puzzle.mjs', './quiz.mjs',
+const cacheName = 'arah-v5';
+const shell = ['./', './index.html', './style.css?v=5', './app.mjs?v=5', './puzzle.mjs', './quiz.mjs',
   './benar.mp3', './salah.mp3', './manifest.webmanifest', './icon-192.png', './icon-512.png'];
 
 self.addEventListener('install', event => {

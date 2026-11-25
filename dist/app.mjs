@@ -38,10 +38,10 @@ function start(reset = false) {
     for (const saved of Object.keys(progress.games)) {
       if (saved.startsWith('daily-') && saved !== 'daily-' + dailyDate) delete progress.games[saved];
     }
-    progress.games[key] = {lives: 3, removed: [], hints: 1, boardVersion: 2};
+    progress.games[key] = {lives: 3, removed: [], hints: 1, boardVersion: 3};
   }
   game = progress.games[key];
-  puzzle = makePuzzle(isDaily ? 7 : level, isDaily ? utcDay * 75323 : undefined, game.boardVersion !== 2);
+  puzzle = makePuzzle(isDaily ? 7 : level, isDaily ? utcDay * 75323 : undefined, game.boardVersion ?? 1);
   remaining = puzzle.paths.filter((_, index) => !game.removed.includes(index));
   highlighted = null;
   obstructed = null;
@@ -53,6 +53,7 @@ function start(reset = false) {
   $('levels').hidden = isDaily;
   render();
   if (!remaining.length || game.lives === 0) finish();
+  else if (needsQuiz() && remaining.length === 1) $('status').textContent = 'Jawab satu soal lewat Petunjuk untuk membuka panah terakhir.';
   else $('status').textContent = isDaily ? 'Tantangan ' + new Intl.DateTimeFormat('id-ID', {dateStyle:'long', timeZone:'UTC'}).format(new Date(dailyDate)) : 'Pilih panah yang jalan keluarnya bebas.';
 }
 
@@ -110,6 +111,10 @@ function render(focusBoard = false) {
 
 function play(path, group, keyboard = false) {
   if (turning || !game.lives || !remaining.includes(path)) return;
+  if (needsQuiz() && remaining.length === 1) {
+    openQuiz('hint');
+    return;
+  }
   turning = true;
   const currentGame = game;
   const blocker = findBlocker(path, remaining, puzzle.size);
@@ -126,7 +131,8 @@ function play(path, group, keyboard = false) {
       if (mode === 'campaign') progress.completed = [...new Set([...(progress.completed || []), level])];
       speak(true);
     }
-    $('status').textContent = 'Panah berhasil keluar!';
+    $('status').textContent = needsQuiz() && remaining.length === 1 ?
+      'Jawab satu soal lewat Petunjuk untuk membuka panah terakhir.' : 'Panah berhasil keluar!';
   }
   save();
   function complete() {
@@ -316,6 +322,10 @@ function shuffle(values) {
   return result;
 }
 
+function needsQuiz() {
+  return game.boardVersion >= 3 && !game.quizPassed;
+}
+
 function openQuiz(kind) {
   if (turning || !game.lives || !remaining.length) return;
   const blocker = obstructed && findBlocker(obstructed, remaining, puzzle.size);
@@ -326,7 +336,8 @@ function openQuiz(kind) {
   }
   const question = questionQueue.pop();
   lastQuestion = question;
-  const content = modal(kind === 'clear' ? 'Singkirkan penghalang' : 'Buka petunjuk');
+  const finalArrow = kind === 'hint' && remaining.length === 1 && needsQuiz();
+  const content = modal(kind === 'clear' ? 'Singkirkan penghalang' : finalArrow ? 'Buka panah terakhir' : 'Buka petunjuk');
   paragraph(content, 'Juz ' + question.juz + ' · ' + question.surah + ' ' + question.ayah);
   paragraph(content, question.prompt);
   const options = document.createElement('div');
@@ -351,6 +362,7 @@ function openQuiz(kind) {
       source.textContent = 'Rujukan terjemahan · ' + question.surah + ' ' + question.ayah;
       content.append(source);
       if (correct) {
+        game.quizPassed = true;
         if (kind === 'clear') {
           removePath(blocker);
           $('status').textContent = 'Penghalang disingkirkan. Coba panahnya lagi.';

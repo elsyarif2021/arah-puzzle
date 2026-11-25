@@ -25,9 +25,31 @@ export function difficulty(level) {
   return {name: 'Sulit', first: 8, size: 15};
 }
 
-export function makePuzzle(level, seed = level * 89729, legacy = false) {
+export function makePuzzle(level, seed = level * 89729, version = 3) {
+  if (version < 3) return generate(level, seed, version);
+  let best;
+  let bestScore = -Infinity;
+  for (let attempt = 0; attempt < 16; attempt++) {
+    const puzzle = generate(level, seed + attempt * 104729, version);
+    const {paths, size} = puzzle;
+    const occupied = paths.reduce((total, path) => total + path.length, 0);
+    const available = paths.filter(path => !findBlocker(path, paths, size)).length;
+    const openingMoves = level <= 3 ? 3 : level <= 7 ? 2 : 1;
+    const score = occupied * 1.5 + paths.length - Math.abs(available - openingMoves) * 6;
+    if (score > bestScore) {
+      best = puzzle;
+      bestScore = score;
+    }
+  }
+  return best;
+}
+
+function generate(level, seed, version) {
+  const legacy = version < 2;
+  const dense = version >= 3;
   const size = legacy ? (level <= 2 ? 9 : level <= 5 ? 11 : 13) : difficulty(level).size;
-  const target = legacy ? level + 6 : level <= 3 ? level + 9 : level <= 7 ? level + 13 : level + 19;
+  const previousTarget = legacy ? level + 6 : level <= 3 ? level + 9 : level <= 7 ? level + 13 : level + 19;
+  const target = dense ? Math.floor(size * size / (level <= 3 ? 4.8 : level <= 7 ? 4 : 3.8)) : previousTarget;
   const paths = [];
   const occupied = new Set();
   function pick(count) {
@@ -44,7 +66,7 @@ export function makePuzzle(level, seed = level * 89729, legacy = false) {
     const ahead = ray(path, size);
     if (ahead.some(cell => occupied.has(cell))) continue;
     const used = new Set([...ahead, key(head), key(neck)]);
-    const length = 4 + pick(5);
+    const length = dense ? 3 + pick(5) : 4 + pick(5);
     while (path.length < length) {
       const options = directions.map(step => add(path[0], step))
         .filter(cell => inside(cell, size) && !occupied.has(key(cell)) && !used.has(key(cell)));
@@ -53,7 +75,7 @@ export function makePuzzle(level, seed = level * 89729, legacy = false) {
       used.add(key(next));
       path.unshift(next);
     }
-    if (path.length < 3) continue;
+    if (path.length < (dense ? 2 : 3)) continue;
     path.forEach(cell => occupied.add(key(cell)));
     paths.push(path);
   }
