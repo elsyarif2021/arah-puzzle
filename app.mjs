@@ -1,4 +1,5 @@
 import {makePuzzle, findBlocker, difficulty} from './puzzle.mjs';
+import {showLeaderboard} from './leaderboard.mjs';
 import {questions} from './quiz.mjs';
 
 const $ = id => document.getElementById(id);
@@ -42,7 +43,7 @@ function start(reset = false) {
     for (const saved of Object.keys(progress.games)) {
       if (saved.startsWith('daily-') && saved !== 'daily-' + dailyDate) delete progress.games[saved];
     }
-    progress.games[key] = {lives: 3, removed: [], helpsLeft: helpLimit, boardVersion: 3};
+    progress.games[key] = {lives: 3, removed: [], helpsLeft: helpLimit, boardVersion: 3, ...(isDaily ? {moves: []} : {})};
   }
   game = progress.games[key];
   game.helpsLeft ??= helpLimit - Number(game.hints === 0);
@@ -127,6 +128,7 @@ function play(path, group, keyboard = false) {
   turning = true;
   const currentGame = game;
   playEffect('launch');
+  recordMove(['arrow', puzzle.paths.indexOf(path)]);
   const blocker = findBlocker(path, remaining, puzzle.size);
   const head = path.at(-1), neck = path.at(-2);
   const dx = head[0]-neck[0], dy = head[1]-neck[1];
@@ -138,6 +140,7 @@ function play(path, group, keyboard = false) {
     removePath(path);
     if (!remaining.length) {
       game.cleared = true;
+      if (game.moves) game.elapsed = Math.max(1, Date.now() - game.started);
       if (mode === 'campaign') progress.completed = [...new Set([...(progress.completed || []), level])];
     }
     $('status').textContent = needsQuiz() && remaining.length === 1 ?
@@ -246,6 +249,12 @@ function crawl(path, group, dx, dy, reducedMotion, impactDistance, complete) {
   requestAnimationFrame(frame);
 }
 
+function recordMove(move) {
+  if (!game.moves) return;
+  game.started ??= Date.now();
+  game.moves.push(move);
+}
+
 function removePath(path) {
   game.removed.push(puzzle.paths.indexOf(path));
   remaining = remaining.filter(other => other !== path);
@@ -298,9 +307,15 @@ function finish() {
   actions.className = 'dialog-actions';
   content.append(actions);
   if (won && mode === 'campaign' && !final) button(actions, 'Level berikutnya →', () => { level++; start(); }, 'accent');
+  if (won && mode === 'daily') button(actions, 'Peringkat harian', openLeaderboard, 'accent');
   button(actions, 'Main lagi', () => start(true), won ? 'quiet' : 'accent');
 }
 
+function openLeaderboard() {
+  const daily = progress.games['daily-' + dailyDate];
+  showLeaderboard(modal('Peringkat harian'), dailyDate, daily?.cleared && daily.moves ? daily : null);
+}
+$('leaderboard').onclick = openLeaderboard;
 $('close').onclick = () => $('dialog').close();
 $('campaign').onclick = () => { if (mode !== 'campaign') { mode = 'campaign'; start(); } };
 $('daily').onclick = () => { if (mode !== 'daily') { mode = 'daily'; start(); } };
@@ -379,6 +394,7 @@ function openQuiz(kind) {
       source.textContent = 'Rujukan terjemahan · ' + question.surah + ' ' + question.ayah;
       content.append(source);
       if (correct) {
+        recordMove([kind, question.ayah, option]);
         game.quizPassed = true;
         game.helpsLeft--;
         if (kind === 'clear') {

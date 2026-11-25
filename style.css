@@ -43,3 +43,11 @@ footer{align-items:center;gap:8px}
 .arrow.blocked .ink{color:#ff5d76}
 
 #help-count{margin:0 0 8px;color:var(--muted);font-size:13px;text-align:center}
+.score-form{display:flex;align-items:end;gap:8px;flex-wrap:wrap}
+.score-form label{display:grid;gap:4px;flex:1 1 140px;font-size:14px}
+.score-form input{width:100%;min-height:42px;border:1px solid var(--edge);border-radius:10px;background:var(--bg);color:var(--text);font:inherit;padding:8px}
+.score-list{padding-left:23px}
+.score-list li{padding:8px 0;border-bottom:1px solid var(--edge)}
+.score-list strong{overflow-wrap:anywhere}
+.score-list small{display:block;color:var(--muted)}
+@media(max-width:390px){.tabs button{padding-inline:11px}}

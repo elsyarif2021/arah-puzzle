@@ -1,5 +1,5 @@
-const cacheName = 'arah-v7';
-const shell = ['./', './index.html', './style.css?v=7', './app.mjs?v=7', './puzzle.mjs', './quiz.mjs',
+const cacheName = 'arah-v8';
+const shell = ['./', './index.html', './style.css?v=8', './app.mjs?v=8', './puzzle.mjs', './quiz.mjs', './leaderboard.mjs',
   './benar.mp3', './salah.mp3', './melesat.mp3', './mentok.mp3', './manifest.webmanifest', './icon-192.png', './icon-512.png'];
 
 self.addEventListener('install', event => {
@@ -11,6 +11,7 @@ self.addEventListener('activate', event => {
 });
 self.addEventListener('fetch', event => {
   const request = event.request;
+  if (new URL(request.url).pathname.endsWith('/api/leaderboard')) return;
   if (request.method !== 'GET' || new URL(request.url).origin !== self.location.origin) return;
   event.respondWith(serve(request));
 });
