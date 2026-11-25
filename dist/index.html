@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#141624">
+<meta name="description" content="Bebaskan semua panah dalam puzzle logika Arah.">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="stylesheet" href="style.css">
+<title>Arah — Puzzle Panah</title>
+<script type="module" src="app.mjs"></script>
+</head>
+<body>
+<header class="header">
+  <div class="brand"><img src="icon-192.png" alt="" width="42" height="42"><div><strong>arah<span>.</span></strong><small>PUZZLE PANAH</small></div></div>
+  <button id="install" class="quiet" type="button">↓ <span>Pasang aplikasi</span></button>
+</header>
+<main>
+  <section class="intro">
+    <div class="tabs" aria-label="Mode permainan"><button id="campaign" aria-pressed="true">Level</button><button id="daily" aria-pressed="false">Harian</button></div>
+    <h1>Bebaskan <em>panah.</em></h1>
+    <p>Ketuk panah yang punya jalan keluar. Urutan menentukan segalanya.</p>
+  </section>
+  <section class="game" aria-label="Puzzle panah">
+    <div class="stats">
+      <button class="quiet level" id="levels" aria-haspopup="dialog">Level <strong id="level-label">01</strong> <span aria-hidden="true">⌄</span></button>
+      <div class="progress"><div><span>Panah keluar</span><strong id="count"></strong></div><progress id="progress" value="0" max="1"></progress></div>
+      <div class="health" id="hearts"></div>
+    </div>
+    <div class="board-wrap"><svg id="board" aria-label="Papan permainan"></svg></div>
+    <p id="status" role="status">Pilih panah yang jalan keluarnya bebas.</p>
+    <div class="actions">
+      <button class="quiet" id="reset">↻ <span>Ulangi</span></button>
+      <button class="accent" id="hint">✦ <span>Petunjuk</span></button>
+    </div>
+  </section>
+  <footer><a href="arah-pwa.zip" download style="color:inherit">Unduh kode sumber</a><span id="connection">Menyiapkan mode offline…</span></footer>
+</main>
+<dialog id="dialog"><div class="dialog-top"><h2 id="dialog-title"></h2><button class="quiet" id="close" aria-label="Tutup">×</button></div><div id="dialog-content"></div></dialog>
+</body>
+</html>
