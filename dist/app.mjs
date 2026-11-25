@@ -3,6 +3,9 @@ import {questions} from './quiz.mjs';
 
 const $ = id => document.getElementById(id);
 const totalLevels = 10;
+const spacing = 28;
+const inset = 16;
+const exitGutter = 46;
 const colors = ['#ffac6d', '#a7a5ff', '#69dac5', '#ff9ab1', '#f3d381'];
 const utcDay = Math.floor((Date.now() + 7 * 3600000) / 86400000);
 const dailyDate = new Date(utcDay * 86400000).toISOString().slice(0, 10);
@@ -71,15 +74,16 @@ function render(focusBoard = false) {
   $('hearts').innerHTML = '<span aria-hidden="true">' + '♥'.repeat(game.lives) + '<span class="spent">' + '♥'.repeat(3-game.lives) + '</span></span>';
   $('hint').disabled = !game.hints || !game.lives || !remaining.length;
   const board = $('board');
-  const spacing = 28, inset = 16;
   const side = inset * 2 + (puzzle.size - 1) * spacing;
-  board.setAttribute('viewBox', '0 0 ' + side + ' ' + side);
+  const frame = side + exitGutter * 2;
+  board.setAttribute('viewBox', `${-exitGutter} ${-exitGutter} ${frame} ${frame}`);
   board.replaceChildren();
   const coord = n => inset + n * spacing;
   const defs = svg('defs', {}, board);
   const pattern = svg('pattern', {id:'dots', width:spacing, height:spacing, x:inset, y:inset, patternUnits:'userSpaceOnUse', patternTransform:'translate(-2 -2)'}, defs);
   svg('circle', {cx:2, cy:2, r:1.6, fill:'#383c56'}, pattern);
-  svg('rect', {width:side, height:side, fill:'url(#dots)'}, board);
+  svg('rect', {width:side, height:side, rx:12, fill:'#181a2a', stroke:'#373b55'}, board);
+  svg('rect', {width:side, height:side, rx:12, fill:'url(#dots)'}, board);
   const active = game.lives > 0;
   remaining.forEach(path => {
     const index = puzzle.paths.indexOf(path);
@@ -132,11 +136,12 @@ function play(path, group, keyboard = false) {
     render(keyboard);
     if (!game.lives || !remaining.length) finish();
   }
-  if (matchMedia('(prefers-reduced-motion: reduce)').matches) return complete();
+  const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
   if (!blocker) {
-    crawl(path, group, dx, dy, complete);
+    crawl(path, group, dx, dy, reducedMotion, complete);
     return;
   }
+  if (reducedMotion) return complete();
   group.animate([
     {transform:'translate(0,0)'},
     {transform:`translate(${dx * 4}px,${dy * 4}px)`},
@@ -149,34 +154,61 @@ function arrowhead(x, y, dx, dy) {
   return wing(1) + ' ' + x + ',' + y + ' ' + wing(-1);
 }
 
-function crawl(path, group, dx, dy, complete) {
-  const spacing = 28, inset = 16;
+function crawl(path, group, dx, dy, reducedMotion, complete) {
   const points = path.map(([x,y]) => [inset + x * spacing, inset + y * spacing]);
   const [x,y] = points.at(-1);
   const bodyLength = points.length - 1;
-  const outside = puzzle.size + 1;
-  points.push([x + dx * spacing * outside, y + dy * spacing * outside]);
+  const side = inset * 2 + (puzzle.size - 1) * spacing;
+  const edgeDistance = dx > 0 ? side - x : dx < 0 ? x : dy > 0 ? side - y : y;
+  const travel = bodyLength + (edgeDistance + exitGutter + 12) / spacing;
   const [body, head] = group.querySelectorAll('.ink');
-  group.style.pointerEvents = 'none';
+  const board = $('board');
+  board.append(group);
+  group.classList.add('crawling');
+  const trail = svg('line', {
+    class:'exit-trail',
+    x1: x, y1: y,
+    x2: x + dx * (edgeDistance + exitGutter),
+    y2: y + dy * (edgeDistance + exitGutter),
+    'aria-hidden':'true'
+  }, group);
+  group.prepend(trail);
+  const beads = reducedMotion ? [] : path.slice(1).map(() => svg('circle', {
+    class:'crawl-segment', r:1.55, 'aria-hidden':'true'
+  }, group));
   const startTime = performance.now();
-  const span = bodyLength + (dx > 0 ? puzzle.size - path.at(-1)[0] :
-    dx < 0 ? path.at(-1)[0] + 1 : dy > 0 ? puzzle.size - path.at(-1)[1] : path.at(-1)[1] + 1);
+  const duration = reducedMotion ? 650 : 420 + travel * 155;
+
   function pointAt(distance) {
-    const base = Math.min(Math.floor(distance), bodyLength);
+    if (distance >= bodyLength) {
+      const outward = (distance - bodyLength) * spacing;
+      return [x + dx * outward, y + dy * outward];
+    }
+    const base = Math.floor(distance);
     const [ax,ay] = points[base], [bx,by] = points[base + 1];
-    const fraction = (distance - base) / (base === bodyLength ? outside : 1);
+    const fraction = distance - base;
     return [ax + (bx - ax) * fraction, ay + (by - ay) * fraction];
   }
+
   function frame(now) {
     if (!group.isConnected) return;
-    const t = Math.min(1, (now - startTime) / Math.min(1650, 650 + span * 48));
-    const step = span * t;
-    const wave = Math.sin(t * Math.PI * 6);
-    const tail = Math.max(0, step + wave * .22);
+    const t = Math.min(1, (now - startTime) / duration);
+    const step = travel * t;
+    const stretch = reducedMotion ? 0 : .28 * Math.sin(step * Math.PI);
+    const tail = Math.max(0, step - stretch);
     const tip = bodyLength + step;
-    const segment = [pointAt(tail), ...points.slice(Math.floor(tail) + 1, bodyLength + 1), pointAt(tip)];
+    const segment = [
+      pointAt(tail),
+      ...points.slice(Math.floor(tail) + 1),
+      pointAt(tip)
+    ];
     body.setAttribute('points', segment.map(point => point.join(',')).join(' '));
     head.setAttribute('points', arrowhead(...segment.at(-1), dx, dy));
+    beads.forEach((bead, index) => {
+      const [bx,by] = pointAt(tail + (tip - tail) * (index + .5) / beads.length);
+      bead.setAttribute('cx', bx);
+      bead.setAttribute('cy', by);
+    });
     if (t < 1) requestAnimationFrame(frame);
     else complete();
   }
