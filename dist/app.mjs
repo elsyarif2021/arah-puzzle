@@ -1,4 +1,5 @@
-import {makePuzzle, findBlocker} from './puzzle.mjs';
+import {makePuzzle, findBlocker, difficulty} from './puzzle.mjs';
+import {questions} from './quiz.mjs';
 
 const $ = id => document.getElementById(id);
 const totalLevels = 10;
@@ -13,7 +14,11 @@ catch { progress = defaults; }
 
 let mode = 'campaign';
 let level = progress.level;
-let puzzle, game, remaining, highlighted;
+let puzzle, game, remaining, highlighted, obstructed;
+let questionQueue = [];
+let lastQuestion;
+const sounds = { correct: new Audio('./benar.mp3'), wrong: new Audio('./salah.mp3') };
+Object.values(sounds).forEach(audio => { audio.preload = 'auto'; });
 let turning = false;
 let deferredInstall;
 
@@ -26,16 +31,17 @@ function start(reset = false) {
   if ($('dialog').open) $('dialog').close();
   const isDaily = mode === 'daily';
   const key = isDaily ? 'daily-' + dailyDate : 'level-' + level;
-  puzzle = isDaily ? makePuzzle(7, utcDay * 75323) : makePuzzle(level);
   if (reset || !progress.games[key]) {
     for (const saved of Object.keys(progress.games)) {
       if (saved.startsWith('daily-') && saved !== 'daily-' + dailyDate) delete progress.games[saved];
     }
-    progress.games[key] = {lives: 3, removed: [], hints: 1};
+    progress.games[key] = {lives: 3, removed: [], hints: 1, boardVersion: 2};
   }
   game = progress.games[key];
+  puzzle = makePuzzle(isDaily ? 7 : level, isDaily ? utcDay * 75323 : undefined, game.boardVersion !== 2);
   remaining = puzzle.paths.filter((_, index) => !game.removed.includes(index));
   highlighted = null;
+  obstructed = null;
   turning = false;
   if (!isDaily) progress.level = level;
   save();
@@ -55,6 +61,8 @@ function svg(tag, props, parent) {
 }
 
 function render(focusBoard = false) {
+  $('difficulty').textContent = difficulty(level).name;
+  $('clear').hidden = !obstructed || !game.lives || !findBlocker(obstructed, remaining, puzzle.size);
   $('level-label').textContent = String(level).padStart(2, '0');
   $('count').textContent = game.removed.length + ' / ' + puzzle.paths.length;
   $('progress').max = puzzle.paths.length;
@@ -63,7 +71,7 @@ function render(focusBoard = false) {
   $('hearts').innerHTML = '<span aria-hidden="true">' + '♥'.repeat(game.lives) + '<span class="spent">' + '♥'.repeat(3-game.lives) + '</span></span>';
   $('hint').disabled = !game.hints || !game.lives || !remaining.length;
   const board = $('board');
-  const spacing = 32, inset = 22;
+  const spacing = 28, inset = 16;
   const side = inset * 2 + (puzzle.size - 1) * spacing;
   board.setAttribute('viewBox', '0 0 ' + side + ' ' + side);
   board.replaceChildren();
@@ -82,10 +90,9 @@ function render(focusBoard = false) {
     const direction = dx ? (dx > 0 ? 'kanan' : 'kiri') : (dy > 0 ? 'bawah' : 'atas');
     const group = svg('g', {class:'arrow' + (path === highlighted ? ' hinted' : ''), color:colors[index % colors.length], role:'button', tabindex:active ? 0 : -1, 'aria-label':'Panah ' + (index + 1) + ' ke ' + direction}, board);
     const points = path.map(([px,py]) => coord(px) + ',' + coord(py)).join(' ');
-    svg('polyline', {points, fill:'none', stroke:'transparent', 'stroke-width':28, 'stroke-linecap':'round', 'stroke-linejoin':'round'}, group);
-    svg('polyline', {class:'ink', points, fill:'none', stroke:'currentColor', 'stroke-width':7, 'stroke-linecap':'round', 'stroke-linejoin':'round', 'pointer-events':'none'}, group);
-    const wing = sign => [x-dx*11+dy*sign*7,y-dy*11-dx*sign*7].join(',');
-    svg('polyline', {class:'ink', points:wing(1)+' '+x+','+y+' '+wing(-1), fill:'none', stroke:'currentColor', 'stroke-width':6, 'stroke-linecap':'round', 'stroke-linejoin':'round', 'pointer-events':'none'}, group);
+    svg('polyline', {points, fill:'none', stroke:'transparent', 'stroke-width':25, 'stroke-linecap':'round', 'stroke-linejoin':'round'}, group);
+    svg('polyline', {class:'ink', points, fill:'none', stroke:'currentColor', 'stroke-width':5.5, 'stroke-linecap':'round', 'stroke-linejoin':'round', 'pointer-events':'none'}, group);
+    svg('polyline', {class:'ink', points:arrowhead(x,y,dx,dy), fill:'none', stroke:'currentColor', 'stroke-width':4.5, 'stroke-linecap':'round', 'stroke-linejoin':'round', 'pointer-events':'none'}, group);
     group.addEventListener('click', () => play(path, group));
     group.addEventListener('keydown', event => {
       if (event.key !== 'Enter' && event.key !== ' ') return;
@@ -104,14 +111,18 @@ function play(path, group, keyboard = false) {
   const head = path.at(-1), neck = path.at(-2);
   const dx = head[0]-neck[0], dy = head[1]-neck[1];
   if (blocker) {
+    obstructed = path;
     game.lives--;
+    speak(false);
     group.classList.add('blocked');
     $('status').textContent = 'Jalur terhalang. Satu nyawa berkurang.';
   } else {
-    game.removed.push(puzzle.paths.indexOf(path));
-    remaining = remaining.filter(other => other !== path);
-    if (highlighted === path) highlighted = null;
-    if (!remaining.length && mode === 'campaign') progress.unlocked = Math.max(progress.unlocked, Math.min(level+1, totalLevels));
+    removePath(path);
+    if (!remaining.length) {
+      game.cleared = true;
+      if (mode === 'campaign') progress.completed = [...new Set([...(progress.completed || []), level])];
+      speak(true);
+    }
     $('status').textContent = 'Panah berhasil keluar!';
   }
   save();
@@ -122,10 +133,67 @@ function play(path, group, keyboard = false) {
     if (!game.lives || !remaining.length) finish();
   }
   if (matchMedia('(prefers-reduced-motion: reduce)').matches) return complete();
-  const keyframes = blocker
-    ? [{transform:'translate(0,0)'},{transform:'translate('+dx*6+'px,'+dy*6+'px)'},{transform:'translate(0,0)'}]
-    : [{opacity:1},{transform:'translate('+dx*450+'px,'+dy*450+'px)',opacity:0}];
-  group.animate(keyframes, {duration:blocker ? 210 : 300, easing:'ease-out', fill:'forwards'}).finished.then(complete);
+  if (!blocker) {
+    crawl(path, group, dx, dy, complete);
+    return;
+  }
+  group.animate([
+    {transform:'translate(0,0)'},
+    {transform:`translate(${dx * 4}px,${dy * 4}px)`},
+    {transform:'translate(0,0)'}
+  ], {duration:400, easing:'ease-in-out'}).finished.then(complete);
+}
+
+function arrowhead(x, y, dx, dy) {
+  const wing = sign => [x - dx * 8 + dy * sign * 5, y - dy * 8 - dx * sign * 5].join(',');
+  return wing(1) + ' ' + x + ',' + y + ' ' + wing(-1);
+}
+
+function crawl(path, group, dx, dy, complete) {
+  const spacing = 28, inset = 16;
+  const points = path.map(([x,y]) => [inset + x * spacing, inset + y * spacing]);
+  const [x,y] = points.at(-1);
+  const bodyLength = points.length - 1;
+  const outside = puzzle.size + 1;
+  points.push([x + dx * spacing * outside, y + dy * spacing * outside]);
+  const [body, head] = group.querySelectorAll('.ink');
+  group.style.pointerEvents = 'none';
+  const startTime = performance.now();
+  const span = bodyLength + (dx > 0 ? puzzle.size - path.at(-1)[0] :
+    dx < 0 ? path.at(-1)[0] + 1 : dy > 0 ? puzzle.size - path.at(-1)[1] : path.at(-1)[1] + 1);
+  function pointAt(distance) {
+    const base = Math.min(Math.floor(distance), bodyLength);
+    const [ax,ay] = points[base], [bx,by] = points[base + 1];
+    const fraction = (distance - base) / (base === bodyLength ? outside : 1);
+    return [ax + (bx - ax) * fraction, ay + (by - ay) * fraction];
+  }
+  function frame(now) {
+    if (!group.isConnected) return;
+    const t = Math.min(1, (now - startTime) / Math.min(1650, 650 + span * 48));
+    const step = span * t;
+    const wave = Math.sin(t * Math.PI * 6);
+    const tail = Math.max(0, step + wave * .22);
+    const tip = bodyLength + step;
+    const segment = [pointAt(tail), ...points.slice(Math.floor(tail) + 1, bodyLength + 1), pointAt(tip)];
+    body.setAttribute('points', segment.map(point => point.join(',')).join(' '));
+    head.setAttribute('points', arrowhead(...segment.at(-1), dx, dy));
+    if (t < 1) requestAnimationFrame(frame);
+    else complete();
+  }
+  requestAnimationFrame(frame);
+}
+
+function removePath(path) {
+  game.removed.push(puzzle.paths.indexOf(path));
+  remaining = remaining.filter(other => other !== path);
+  if (highlighted === path) highlighted = null;
+  if (obstructed === path) obstructed = null;
+}
+
+function speak(correct) {
+  if (progress.sound === false) return;
+  Object.values(sounds).forEach(audio => { audio.pause(); audio.currentTime = 0; });
+  sounds[correct ? 'correct' : 'wrong'].play().catch(() => {});
 }
 
 function modal(title) {
@@ -153,7 +221,7 @@ function button(parent, label, action, style = 'quiet') {
 function finish() {
   const won = remaining.length === 0;
   const final = mode === 'campaign' && level === totalLevels;
-  const title = won ? (final ? 'Semua level selesai!' : 'Papan berhasil dibersihkan!') : 'Nyawa habis';
+  const title = won ? (final ? 'Alhamdulillah, level sulit selesai!' : 'Alhamdulillah, papan bersih!') : 'Nyawa habis';
   $('status').textContent = title;
   const content = modal(title);
   paragraph(content, won ? 'Sisa nyawa ' + game.lives + ' dari 3.' : 'Coba lagi dan cari panah yang jalurnya bebas.');
@@ -171,23 +239,110 @@ $('reset').onclick = () => start(true);
 $('levels').onclick = () => {
   if (turning) return;
   const content = modal('Pilih level');
-  const grid = document.createElement('div');
-  grid.className = 'level-grid';
-  content.append(grid);
-  for (let n = 1; n <= totalLevels; n++) {
-    const item = button(grid, String(n), () => { level = n; start(); }, n === level ? 'accent' : 'quiet');
-    item.disabled = n > progress.unlocked;
-    item.setAttribute('aria-label', 'Level ' + n + (item.disabled ? ' terkunci' : ''));
+  for (const first of [1, 4, 8]) {
+    const group = document.createElement('section');
+    group.className = 'difficulty-group';
+    const heading = document.createElement('h3');
+    heading.textContent = difficulty(first).name;
+    const grid = document.createElement('div');
+    grid.className = 'level-grid';
+    group.append(heading, grid);
+    content.append(group);
+    for (let n = first; n <= totalLevels && difficulty(n).first === first; n++) {
+      const item = button(grid, String(n), () => { level = n; start(); }, n === level ? 'accent' : 'quiet');
+      item.disabled = !levelAvailable(n);
+      item.setAttribute('aria-label', 'Level ' + n + (item.disabled ? ' terkunci' : ''));
+    }
   }
 };
-$('hint').onclick = () => {
-  if (turning || !game.hints) return;
-  highlighted = remaining.find(path => !findBlocker(path, remaining, puzzle.size));
-  game.hints--;
+
+function levelAvailable(n) {
+  if (n === difficulty(n).first || n <= progress.unlocked || progress.games['level-' + n]) return true;
+  return progress.completed?.includes(n - 1) === true;
+}
+
+function shuffle(values) {
+  const result = [...values];
+  for (let i = result.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [result[i], result[j]] = [result[j], result[i]];
+  }
+  return result;
+}
+
+function openQuiz(kind) {
+  if (turning || !game.lives || !remaining.length) return;
+  const blocker = obstructed && findBlocker(obstructed, remaining, puzzle.size);
+  if (kind === 'clear' ? !blocker : !game.hints) return;
+  if (!questionQueue.length) {
+    questionQueue = shuffle(questions);
+    if (questionQueue.at(-1) === lastQuestion) questionQueue.unshift(questionQueue.pop());
+  }
+  const question = questionQueue.pop();
+  lastQuestion = question;
+  const content = modal(kind === 'clear' ? 'Singkirkan penghalang' : 'Buka petunjuk');
+  paragraph(content, 'Juz ' + question.juz + ' · ' + question.surah + ' ' + question.ayah);
+  paragraph(content, question.prompt);
+  const options = document.createElement('div');
+  options.className = 'quiz-options';
+  content.append(options);
+  for (const option of shuffle([question.answer, ...question.distractors])) {
+    button(options, option, () => {
+      const correct = option === question.answer;
+      speak(correct);
+      options.remove();
+      const feedback = document.createElement('p');
+      feedback.className = 'feedback';
+      feedback.setAttribute('role', 'status');
+      feedback.textContent = correct ? 'Alhamdulillah, jawaban benar!' : 'Astaghfirullah, jawaban yang tepat adalah ' + question.answer + '.';
+      content.append(feedback);
+      paragraph(content, question.translation);
+      const source = document.createElement('a');
+      source.href = question.source;
+      source.target = '_blank';
+      source.rel = 'noopener noreferrer';
+      source.className = 'ayah-source';
+      source.textContent = 'Rujukan terjemahan · ' + question.surah + ' ' + question.ayah;
+      content.append(source);
+      if (correct) {
+        if (kind === 'clear') {
+          removePath(blocker);
+          $('status').textContent = 'Penghalang disingkirkan. Coba panahnya lagi.';
+        } else {
+          highlighted = remaining.find(path => !findBlocker(path, remaining, puzzle.size));
+          game.hints--;
+          $('status').textContent = 'Panah yang menyala bisa keluar.';
+        }
+        save();
+        render();
+      } else {
+        $('status').textContent = 'Jawaban belum tepat. Kamu bisa mencoba soal lain.';
+      }
+      const actions = document.createElement('div');
+      actions.className = 'dialog-actions';
+      content.append(actions);
+      button(actions, correct ? 'Kembali ke papan' : 'Coba soal lain', () => {
+        if (correct) $('dialog').close();
+        else openQuiz(kind);
+      }, 'accent').focus();
+    });
+  }
+  options.querySelector('button')?.focus();
+}
+
+$('hint').onclick = () => openQuiz('hint');
+$('clear').onclick = () => openQuiz('clear');
+function updateSound() {
+  $('sound').setAttribute('aria-pressed', String(progress.sound !== false));
+  $('sound').textContent = progress.sound === false ? 'Suara nonaktif' : 'Suara aktif';
+}
+$('sound').onclick = () => {
+  progress.sound = progress.sound === false;
+  if (!progress.sound) Object.values(sounds).forEach(audio => audio.pause());
   save();
-  render();
-  $('status').textContent = 'Panah yang menyala bisa keluar.';
+  updateSound();
 };
+updateSound();
 
 window.addEventListener('beforeinstallprompt', event => { event.preventDefault(); deferredInstall = event; });
 window.addEventListener('appinstalled', () => { deferredInstall = null; $('install').hidden = true; });

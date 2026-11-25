@@ -21,11 +21,11 @@
   <section class="intro">
     <div class="tabs" aria-label="Mode permainan"><button id="campaign" aria-pressed="true">Level</button><button id="daily" aria-pressed="false">Harian</button></div>
     <h1>Bebaskan <em>panah.</em></h1>
-    <p>Ketuk panah yang punya jalan keluar. Urutan menentukan segalanya.</p>
+    <p>Buka jalan panah dan uji pengetahuanmu tentang Al-Qur’an.</p>
   </section>
   <section class="game" aria-label="Puzzle panah">
     <div class="stats">
-      <button class="quiet level" id="levels" aria-haspopup="dialog">Level <strong id="level-label">01</strong> <span aria-hidden="true">⌄</span></button>
+      <button class="quiet level" id="levels" aria-haspopup="dialog">Level <strong id="level-label">01</strong><span id="difficulty"></span> <span aria-hidden="true">⌄</span></button>
       <div class="progress"><div><span>Panah keluar</span><strong id="count"></strong></div><progress id="progress" value="0" max="1"></progress></div>
       <div class="health" id="hearts"></div>
     </div>
@@ -33,10 +33,11 @@
     <p id="status" role="status">Pilih panah yang jalan keluarnya bebas.</p>
     <div class="actions">
       <button class="quiet" id="reset">↻ <span>Ulangi</span></button>
-      <button class="accent" id="hint">✦ <span>Petunjuk</span></button>
+      <button class="quiet" id="clear" hidden>Singkirkan penghalang</button>
+      <button class="accent" id="hint">Petunjuk</button>
     </div>
   </section>
-  <footer><a href="arah-pwa.zip" download style="color:inherit">Unduh kode sumber</a><span id="connection">Menyiapkan mode offline…</span></footer>
+  <footer><a href="arah-pwa.zip" download style="color:inherit">Unduh kode sumber</a><button class="quiet" id="sound" aria-pressed="true">Suara aktif</button><span id="connection">Menyiapkan mode offline…</span></footer>
 </main>
 <dialog id="dialog"><div class="dialog-top"><h2 id="dialog-title"></h2><button class="quiet" id="close" aria-label="Tutup">×</button></div><div id="dialog-content"></div></dialog>
 </body>

@@ -13,13 +13,21 @@ export function ray(path, size) {
 }
 
 export function findBlocker(path, remaining, size) {
-  const ahead = new Set(ray(path, size));
-  return remaining.find(other => other !== path && other.some(cell => ahead.has(key(cell))));
+  for (const cell of ray(path, size)) {
+    const blocker = remaining.find(other => other !== path && other.some(point => key(point) === cell));
+    if (blocker) return blocker;
+  }
 }
 
-export function makePuzzle(level, seed = level * 89729) {
-  const size = level <= 2 ? 9 : level <= 5 ? 11 : 13;
-  const target = level + 6;
+export function difficulty(level) {
+  if (level <= 3) return {name: 'Mudah', first: 1, size: level === 3 ? 10 : 9};
+  if (level <= 7) return {name: 'Sedang', first: 4, size: 12};
+  return {name: 'Sulit', first: 8, size: 15};
+}
+
+export function makePuzzle(level, seed = level * 89729, legacy = false) {
+  const size = legacy ? (level <= 2 ? 9 : level <= 5 ? 11 : 13) : difficulty(level).size;
+  const target = legacy ? level + 6 : level <= 3 ? level + 9 : level <= 7 ? level + 13 : level + 19;
   const paths = [];
   const occupied = new Set();
   function pick(count) {
