@@ -41,3 +41,5 @@ footer{align-items:center;gap:8px}
 .crawling.blocked .exit-trail{stroke:#ff5d76}
 
 .arrow.blocked .ink{color:#ff5d76}
+
+#help-count{margin:0 0 8px;color:var(--muted);font-size:13px;text-align:center}

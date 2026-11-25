@@ -8,9 +8,9 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" type="image/png" href="icon-192.png">
 <link rel="apple-touch-icon" href="icon-192.png">
-<link rel="stylesheet" href="style.css?v=5">
+<link rel="stylesheet" href="style.css?v=6">
 <title>Arah — Puzzle Panah</title>
-<script type="module" src="app.mjs?v=5"></script>
+<script type="module" src="app.mjs?v=6"></script>
 </head>
 <body>
 <header class="header">
@@ -31,9 +31,11 @@
     </div>
     <div class="board-wrap"><svg id="board" aria-label="Papan permainan"></svg></div>
     <p id="status" role="status">Pilih panah yang jalan keluarnya bebas.</p>
+    <p id="help-count" aria-live="polite"></p>
     <div class="actions">
       <button class="quiet" id="reset">↻ <span>Ulangi</span></button>
       <button class="quiet" id="clear" hidden>Singkirkan penghalang</button>
+      <button class="quiet" id="life" hidden>Tambah Nyawa</button>
       <button class="accent" id="hint">Petunjuk</button>
     </div>
   </section>

@@ -3,6 +3,7 @@ import {questions} from './quiz.mjs';
 
 const $ = id => document.getElementById(id);
 const totalLevels = 10;
+const helpLimit = 3;
 const spacing = 28;
 const inset = 16;
 const exitGutter = 46;
@@ -38,9 +39,10 @@ function start(reset = false) {
     for (const saved of Object.keys(progress.games)) {
       if (saved.startsWith('daily-') && saved !== 'daily-' + dailyDate) delete progress.games[saved];
     }
-    progress.games[key] = {lives: 3, removed: [], hints: 1, boardVersion: 3};
+    progress.games[key] = {lives: 3, removed: [], helpsLeft: helpLimit, boardVersion: 3};
   }
   game = progress.games[key];
+  game.helpsLeft ??= helpLimit - Number(game.hints === 0);
   puzzle = makePuzzle(isDaily ? 7 : level, isDaily ? utcDay * 75323 : undefined, game.boardVersion ?? 1);
   remaining = puzzle.paths.filter((_, index) => !game.removed.includes(index));
   highlighted = null;
@@ -68,13 +70,17 @@ function render(focusBoard = false) {
   $('difficulty').textContent = difficulty(level).name;
   const blockedArrow = obstructed && findBlocker(obstructed, remaining, puzzle.size) ? obstructed : null;
   $('clear').hidden = !blockedArrow || !game.lives;
+  $('clear').disabled = !game.helpsLeft;
+  $('life').hidden = game.lives !== 1 || !remaining.length;
+  $('life').disabled = !game.helpsLeft;
+  $('help-count').textContent = 'Bantuan tersisa ' + game.helpsLeft + ' / ' + helpLimit;
   $('level-label').textContent = String(level).padStart(2, '0');
   $('count').textContent = game.removed.length + ' / ' + puzzle.paths.length;
   $('progress').max = puzzle.paths.length;
   $('progress').value = game.removed.length;
   $('hearts').setAttribute('aria-label', game.lives + ' dari 3 nyawa');
   $('hearts').innerHTML = '<span aria-hidden="true">' + '♥'.repeat(game.lives) + '<span class="spent">' + '♥'.repeat(3-game.lives) + '</span></span>';
-  $('hint').disabled = !game.hints || !game.lives || !remaining.length;
+  $('hint').disabled = !game.helpsLeft || !game.lives || !remaining.length;
   const board = $('board');
   const side = inset * 2 + (puzzle.size - 1) * spacing;
   const frame = side + exitGutter * 2;
@@ -327,9 +333,9 @@ function needsQuiz() {
 }
 
 function openQuiz(kind) {
-  if (turning || !game.lives || !remaining.length) return;
+  if (turning || !game.lives || !remaining.length || !game.helpsLeft) return;
   const blocker = obstructed && findBlocker(obstructed, remaining, puzzle.size);
-  if (kind === 'clear' ? !blocker : !game.hints) return;
+  if ((kind === 'clear' && !blocker) || (kind === 'life' && game.lives !== 1)) return;
   if (!questionQueue.length) {
     questionQueue = shuffle(questions);
     if (questionQueue.at(-1) === lastQuestion) questionQueue.unshift(questionQueue.pop());
@@ -337,7 +343,7 @@ function openQuiz(kind) {
   const question = questionQueue.pop();
   lastQuestion = question;
   const finalArrow = kind === 'hint' && remaining.length === 1 && needsQuiz();
-  const content = modal(kind === 'clear' ? 'Singkirkan penghalang' : finalArrow ? 'Buka panah terakhir' : 'Buka petunjuk');
+  const content = modal(kind === 'clear' ? 'Singkirkan penghalang' : kind === 'life' ? 'Tambah satu nyawa' : finalArrow ? 'Buka panah terakhir' : 'Buka petunjuk');
   paragraph(content, 'Juz ' + question.juz + ' · ' + question.surah + ' ' + question.ayah);
   paragraph(content, question.prompt);
   const options = document.createElement('div');
@@ -363,12 +369,15 @@ function openQuiz(kind) {
       content.append(source);
       if (correct) {
         game.quizPassed = true;
+        game.helpsLeft--;
         if (kind === 'clear') {
           removePath(blocker);
           $('status').textContent = 'Penghalang disingkirkan. Coba panahnya lagi.';
+        } else if (kind === 'life') {
+          game.lives++;
+          $('status').textContent = 'Satu nyawa bertambah. Sekarang kamu punya 2 nyawa.';
         } else {
           highlighted = remaining.find(path => !findBlocker(path, remaining, puzzle.size));
-          game.hints--;
           $('status').textContent = 'Panah yang menyala bisa keluar.';
         }
         save();
@@ -390,6 +399,7 @@ function openQuiz(kind) {
 
 $('hint').onclick = () => openQuiz('hint');
 $('clear').onclick = () => openQuiz('clear');
+$('life').onclick = () => openQuiz('life');
 function updateSound() {
   $('sound').setAttribute('aria-pressed', String(progress.sound !== false));
   $('sound').textContent = progress.sound === false ? 'Suara nonaktif' : 'Suara aktif';
