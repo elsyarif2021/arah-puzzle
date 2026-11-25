@@ -1,4 +1,5 @@
 import {makePuzzle, findBlocker} from '../puzzle.mjs';
+import {normalizeNickname, nicknameHelp} from '../profile.mjs';
 import {questions} from '../quiz.mjs';
 
 const upsert = `
@@ -77,10 +78,8 @@ async function leaderboard(request, env) {
     catch { return json({error:'Format skor tidak valid.'}, 400); }
     const {nickname, device, moves, elapsed} = parsed ?? {};
     if (parsed?.date !== date) return json({error:'Skor hanya bisa dikirim pada hari tantangannya (WIB).'}, 409);
-    const name = typeof nickname === 'string' ? nickname.normalize('NFC').trim().replace(/ +/g, ' ') : '';
-    if (!/^[\p{L}\p{N}][\p{L}\p{M}\p{N} _.-]{1,23}$/u.test(name)) {
-      return json({error:'Gunakan 2–24 karakter untuk nama panggilan, dengan huruf, angka, spasi, titik, garis bawah, atau tanda hubung.'}, 400);
-    }
+    const name = normalizeNickname(nickname);
+    if (!name) return json({error:nicknameHelp}, 400);
     if (typeof device !== 'string' || !validDevice.test(device) || !Array.isArray(moves) || moves.length > 120 ||
       !Number.isInteger(elapsed) || elapsed < 1000 || elapsed > 86400000) return json({error:'Data skor tidak valid.'}, 400);
     const lives = replay(utcDay, moves);

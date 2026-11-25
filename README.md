@@ -15,3 +15,5 @@ Tidak ada dependensi runtime.
 Peringkat hari ini menampilkan 20 hasil terbaik berdasarkan sisa nyawa, kemudian waktu. Skor disimpan saat pemain menekan Kirim skor. Skor lama tanpa riwayat langkah tetap tersedia di perangkat, dan percobaan baru dapat dikirim. Server memeriksa ulang urutan langkah; durasi dihitung oleh aplikasi.
 
 Untuk hosting dengan peringkat, jalankan `node worker/build.mjs` dan deploy `dist/server/index.js` sebagai Worker ES module. Hubungkan D1 sebagai `DB` dan terapkan migrasi SQL dari folder `drizzle`. Server statis sederhana hanya menjalankan game dan cache offline.
+
+Buka **Profil** di bagian atas untuk menyimpan nama panggilan di perangkat. Nama ini diisi otomatis saat mengirim skor.

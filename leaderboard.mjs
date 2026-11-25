@@ -1,3 +1,5 @@
+import {getNickname, saveNickname, normalizeNickname} from './profile.mjs';
+
 const endpoint = './api/leaderboard';
 
 function add(parent, element, text) {
@@ -38,7 +40,7 @@ export async function showLeaderboard(content, date, result) {
     input.required = true;
     input.maxLength = 24;
     input.autocomplete = 'nickname';
-    try { input.value = localStorage.getItem('arah-nickname') || ''; } catch {}
+    input.value = getNickname();
     const submit = add(form, 'button', 'Kirim skor');
     submit.className = 'accent';
     form.addEventListener('submit', async event => {
@@ -52,7 +54,7 @@ export async function showLeaderboard(content, date, result) {
           localStorage.setItem('arah-ranking-id', device);
         }
         const data = await api('POST', {date, nickname:input.value, device, moves:result.moves, elapsed:result.elapsed});
-        try { localStorage.setItem('arah-nickname', input.value.trim()); } catch {}
+        try { saveNickname(normalizeNickname(input.value)); } catch {}
         showRows(data);
         status.textContent = 'Skor terbaikmu tercatat.';
       } catch (error) {

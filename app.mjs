@@ -1,4 +1,5 @@
 import {makePuzzle, findBlocker, difficulty} from './puzzle.mjs';
+import {getNickname, saveNickname, normalizeNickname, nicknameHelp} from './profile.mjs';
 import {showLeaderboard} from './leaderboard.mjs';
 import {questions} from './quiz.mjs';
 
@@ -310,6 +311,49 @@ function finish() {
   if (won && mode === 'daily') button(actions, 'Peringkat harian', openLeaderboard, 'accent');
   button(actions, 'Main lagi', () => start(true), won ? 'quiet' : 'accent');
 }
+
+function openProfile() {
+  const content = modal('Profil pemain');
+  paragraph(content, 'Nama panggilan disimpan di perangkat ini dan otomatis diisi saat kamu mengirim skor.');
+  const form = document.createElement('form');
+  form.className = 'score-form';
+  const label = document.createElement('label');
+  label.textContent = 'Nama panggilan';
+  const input = document.createElement('input');
+  input.name = 'nickname';
+  input.autocomplete = 'nickname';
+  input.maxLength = 24;
+  input.required = true;
+  input.value = getNickname();
+  label.append(input);
+  form.append(label);
+  const submit = document.createElement('button');
+  submit.type = 'submit';
+  submit.className = 'accent';
+  submit.textContent = 'Simpan';
+  form.append(submit);
+  const status = document.createElement('p');
+  status.setAttribute('role', 'status');
+  form.addEventListener('submit', event => {
+    event.preventDefault();
+    const name = normalizeNickname(input.value);
+    if (!name) {
+      status.textContent = nicknameHelp;
+      input.focus();
+      return;
+    }
+    try {
+      saveNickname(name);
+      input.value = name;
+      status.textContent = 'Profil tersimpan.';
+    } catch {
+      status.textContent = 'Profil tidak dapat disimpan di perangkat ini.';
+    }
+  });
+  content.append(form, status);
+  input.focus();
+}
+$('profile').onclick = openProfile;
 
 function openLeaderboard() {
   const daily = progress.games['daily-' + dailyDate];
