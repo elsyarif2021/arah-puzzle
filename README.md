@@ -1,6 +1,6 @@
 # Arah
 
-Puzzle panah PWA dengan 30 level, 10 untuk setiap kategori Mudah, Sedang, dan Sulit. Ketuk panah yang jalurnya bebas. Percobaan yang terhalang mengurangi satu nyawa. Jawab soal Juz 29 atau 30 untuk menyingkirkan penghalang, memakai petunjuk, atau menambah satu nyawa saat tersisa satu. Tiga bantuan tersedia per percobaan. Jawaban benar mengurangi satu jatah dan jawaban salah membiarkan jatah tetap. Selesaikan minimal satu soal untuk membuka panah terakhir pada papan baru. Setiap soal menampilkan rujukan dan terjemahan Quran.ai edisi id-id, bersumber dari Quran.com edisi 33.
+Puzzle panah PWA dengan 30 level, 10 untuk setiap kategori Mudah, Sedang, dan Sulit. Selesaikan level secara berurutan dari 1 hingga 30 untuk membuka level berikutnya. Ketuk panah yang jalurnya bebas. Percobaan yang terhalang mengurangi satu nyawa. Jawab soal Juz 29 atau 30 untuk menyingkirkan penghalang, memakai petunjuk, atau menambah satu nyawa saat tersisa satu. Tiga bantuan tersedia per percobaan. Jawaban benar mengurangi satu jatah dan jawaban salah membiarkan jatah tetap. Selesaikan minimal satu soal untuk membuka panah terakhir pada papan baru. Setiap soal menampilkan rujukan dan terjemahan Quran.ai edisi id-id, bersumber dari Quran.com edisi 33.
 
 Tombol suara mengatur efek melesat, efek mentok, serta ucapan Alhamdulillah dan Astaghfirullah. Kuis dan audio tersimpan di cache offline setelah pemuatan awal. Tantangan harian menggunakan tanggal WIB. Progres disimpan di browser, dan papan lama tetap dapat diteruskan hingga pemain menekan Ulangi.
 

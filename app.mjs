@@ -60,6 +60,7 @@ function save() {
 function start(reset = false) {
   if ($('dialog').open) $('dialog').close();
   const isDaily = mode === 'daily';
+  if (!isDaily) level = Math.min(level, lastAvailableLevel());
   const key = isDaily ? 'daily-' + dailyDate : 'level-' + level;
   if (reset || !progress.games[key]) {
     for (const saved of Object.keys(progress.games)) {
@@ -407,6 +408,8 @@ $('reset').onclick = () => start(true);
 $('levels').onclick = () => {
   if (turning) return;
   const content = modal('Pilih level');
+  paragraph(content, 'Selesaikan setiap level untuk membuka level berikutnya.');
+  const lastAvailable = lastAvailableLevel();
   for (const tier of tiers) {
     const {first, name} = tier;
     const group = document.createElement('section');
@@ -419,7 +422,7 @@ $('levels').onclick = () => {
     content.append(group);
     for (let n = first; n < first + levelsPerTier; n++) {
       const item = button(grid, String(n), () => { level = n; start(); }, n === level ? 'accent' : 'quiet');
-      item.disabled = !levelAvailable(n);
+      item.disabled = n > lastAvailable;
       if (progress.completed.includes(n)) item.classList.add('level-cleared');
       item.setAttribute('aria-label', 'Level ' + n + (item.disabled ? ' terkunci' : progress.completed.includes(n) ? ' selesai' : ''));
     }
@@ -427,9 +430,11 @@ $('levels').onclick = () => {
   }
 };
 
-function levelAvailable(n) {
-  if (n === difficulty(n).first || progress.completed.includes(n) || progress.games['level-' + n]) return true;
-  return progress.completed?.includes(n - 1) === true;
+function lastAvailableLevel() {
+  const completed = new Set(progress.completed);
+  let next = 1;
+  while (next < totalLevels && completed.has(next)) next++;
+  return next;
 }
 
 function shuffle(values) {
