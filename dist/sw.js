@@ -1,6 +1,6 @@
-const cacheName = 'arah-v6';
-const shell = ['./', './index.html', './style.css?v=6', './app.mjs?v=6', './puzzle.mjs', './quiz.mjs',
-  './benar.mp3', './salah.mp3', './manifest.webmanifest', './icon-192.png', './icon-512.png'];
+const cacheName = 'arah-v7';
+const shell = ['./', './index.html', './style.css?v=7', './app.mjs?v=7', './puzzle.mjs', './quiz.mjs',
+  './benar.mp3', './salah.mp3', './melesat.mp3', './mentok.mp3', './manifest.webmanifest', './icon-192.png', './icon-512.png'];
 
 self.addEventListener('install', event => {
   event.waitUntil(caches.open(cacheName).then(cache => cache.addAll(shell)).then(() => self.skipWaiting()));

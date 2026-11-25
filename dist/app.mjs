@@ -22,7 +22,10 @@ let puzzle, game, remaining, highlighted, obstructed;
 let questionQueue = [];
 let lastQuestion;
 const sounds = { correct: new Audio('./benar.mp3'), wrong: new Audio('./salah.mp3') };
-Object.values(sounds).forEach(audio => { audio.preload = 'auto'; });
+const effects = { launch: new Audio('./melesat.mp3'), impact: new Audio('./mentok.mp3') };
+const allAudio = [...Object.values(sounds), ...Object.values(effects)];
+allAudio.forEach(audio => { audio.preload = 'auto'; });
+Object.values(effects).forEach(audio => { audio.volume = 0.68; });
 let turning = false;
 let deferredInstall;
 
@@ -123,6 +126,7 @@ function play(path, group, keyboard = false) {
   }
   turning = true;
   const currentGame = game;
+  playEffect('launch');
   const blocker = findBlocker(path, remaining, puzzle.size);
   const head = path.at(-1), neck = path.at(-2);
   const dx = head[0]-neck[0], dy = head[1]-neck[1];
@@ -135,7 +139,6 @@ function play(path, group, keyboard = false) {
     if (!remaining.length) {
       game.cleared = true;
       if (mode === 'campaign') progress.completed = [...new Set([...(progress.completed || []), level])];
-      speak(true);
     }
     $('status').textContent = needsQuiz() && remaining.length === 1 ?
       'Jawab satu soal lewat Petunjuk untuk membuka panah terakhir.' : 'Panah berhasil keluar!';
@@ -145,6 +148,7 @@ function play(path, group, keyboard = false) {
     if (game !== currentGame || !group.isConnected) return;
     turning = false;
     render(keyboard);
+    if (!remaining.length) speak(true);
     if (!game.lives || !remaining.length) finish();
   }
   const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -214,6 +218,7 @@ function crawl(path, group, dx, dy, reducedMotion, impactDistance, complete) {
     if (blocked && elapsed >= forward && !hit) {
       hit = true;
       group.classList.add('blocked');
+      playEffect('impact');
       speak(false);
       $('status').textContent = 'Panah mentok. Satu nyawa berkurang.';
     }
@@ -246,6 +251,12 @@ function removePath(path) {
   remaining = remaining.filter(other => other !== path);
   if (highlighted === path) highlighted = null;
   if (obstructed === path) obstructed = null;
+}
+
+function playEffect(name) {
+  if (progress.sound === false) return;
+  Object.values(effects).forEach(audio => { audio.pause(); audio.currentTime = 0; });
+  effects[name].play().catch(() => {});
 }
 
 function speak(correct) {
@@ -406,7 +417,7 @@ function updateSound() {
 }
 $('sound').onclick = () => {
   progress.sound = progress.sound === false;
-  if (!progress.sound) Object.values(sounds).forEach(audio => audio.pause());
+  if (!progress.sound) allAudio.forEach(audio => audio.pause());
   save();
   updateSound();
 };
