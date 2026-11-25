@@ -5,7 +5,7 @@ const types = {
   mjs:'text/javascript; charset=utf-8', js:'text/javascript; charset=utf-8',
   webmanifest:'application/manifest+json', png:'image/png', mp3:'audio/mpeg', zip:'application/zip'
 };
-const names = ['index.html','app.mjs','leaderboard.mjs','profile.mjs','puzzle.mjs','quiz.mjs','style.css','sw.js',
+const names = ['index.html','app.mjs','leaderboard.mjs','profile.mjs','certificate.mjs','puzzle.mjs','quiz.mjs','style.css','sw.js',
   'manifest.webmanifest','icon-192.png','icon-512.png','benar.mp3','salah.mp3','mentok.mp3','melesat.mp3'];
 const assets = {};
 for (const name of names) {

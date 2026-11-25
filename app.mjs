@@ -1,10 +1,11 @@
-import {makePuzzle, findBlocker, difficulty} from './puzzle.mjs';
+import {makePuzzle, findBlocker, difficulty, tiers, levelsPerTier} from './puzzle.mjs';
 import {getNickname, saveNickname, normalizeNickname, nicknameHelp} from './profile.mjs';
 import {showLeaderboard} from './leaderboard.mjs';
+import {showCertificate} from './certificate.mjs';
 import {questions} from './quiz.mjs';
 
 const $ = id => document.getElementById(id);
-const totalLevels = 10;
+const totalLevels = tiers.length * levelsPerTier;
 const helpLimit = 3;
 const spacing = 28;
 const inset = 16;
@@ -17,6 +18,26 @@ const defaults = {unlocked: 1, level: 1, games: {}};
 let progress;
 try { progress = JSON.parse(localStorage.getItem(storageKey)) || defaults; }
 catch { progress = defaults; }
+
+if (!progress.levelLayout) {
+  const moveLevel = n => n <= 3 ? n : n <= 7 ? n + 7 : n + 13;
+  const previousCompleted = new Set(progress.completed || []);
+  for (let n = 1; n <= 10; n++) {
+    const key = 'level-' + n;
+    const previous = progress.games[key];
+    if (previous) {
+      delete progress.games[key];
+      progress.games['level-' + moveLevel(n)] = {...previous, legacyLevel:n};
+      const version = previous.boardVersion ?? 1;
+      if (previous.cleared || previous.removed.length === makePuzzle(n, undefined, version).paths.length) previousCompleted.add(n);
+    }
+    if (n < progress.unlocked) previousCompleted.add(n);
+  }
+  progress.level = moveLevel(progress.level);
+  progress.completed = [...previousCompleted].map(moveLevel);
+  progress.levelLayout = 30;
+}
+progress.certificates ??= {};
 
 let mode = 'campaign';
 let level = progress.level;
@@ -44,11 +65,11 @@ function start(reset = false) {
     for (const saved of Object.keys(progress.games)) {
       if (saved.startsWith('daily-') && saved !== 'daily-' + dailyDate) delete progress.games[saved];
     }
-    progress.games[key] = {lives: 3, removed: [], helpsLeft: helpLimit, boardVersion: 3, ...(isDaily ? {moves: []} : {})};
+    progress.games[key] = {lives: 3, removed: [], helpsLeft: helpLimit, boardVersion: isDaily ? 3 : 4, ...(isDaily ? {moves: []} : {})};
   }
   game = progress.games[key];
   game.helpsLeft ??= helpLimit - Number(game.hints === 0);
-  puzzle = makePuzzle(isDaily ? 7 : level, isDaily ? utcDay * 75323 : undefined, game.boardVersion ?? 1);
+  puzzle = makePuzzle(isDaily ? 7 : game.legacyLevel ?? level, isDaily ? utcDay * 75323 : undefined, game.boardVersion ?? 1);
   remaining = puzzle.paths.filter((_, index) => !game.removed.includes(index));
   highlighted = null;
   obstructed = null;
@@ -142,7 +163,13 @@ function play(path, group, keyboard = false) {
     if (!remaining.length) {
       game.cleared = true;
       if (game.moves) game.elapsed = Math.max(1, Date.now() - game.started);
-      if (mode === 'campaign') progress.completed = [...new Set([...(progress.completed || []), level])];
+      if (mode === 'campaign') {
+        progress.completed = [...new Set([...progress.completed, level])];
+        const tier = difficulty(level);
+        if (completedIn(tier) === levelsPerTier) {
+          progress.certificates[tier.first] ??= new Date(Date.now() + 7 * 3600000).toISOString().slice(0, 10);
+        }
+      }
     }
     $('status').textContent = needsQuiz() && remaining.length === 1 ?
       'Jawab satu soal lewat Petunjuk untuk membuka panah terakhir.' : 'Panah berhasil keluar!';
@@ -297,17 +324,30 @@ function button(parent, label, action, style = 'quiet') {
   return control;
 }
 
+function completedIn(tier) {
+  return progress.completed.filter(n => n >= tier.first && n < tier.first + levelsPerTier).length;
+}
+
+function openCertificate(tier) {
+  const date = progress.certificates[tier.first];
+  if (!date) return;
+  showCertificate(modal('Sertifikat ' + tier.name), tier, date, getNickname());
+}
+
 function finish() {
   const won = remaining.length === 0;
-  const final = mode === 'campaign' && level === totalLevels;
-  const title = won ? (final ? 'Alhamdulillah, level sulit selesai!' : 'Alhamdulillah, papan bersih!') : 'Nyawa habis';
+  const tier = difficulty(level);
+  const certificate = won && mode === 'campaign' && progress.certificates[tier.first];
+  const title = won ? 'Alhamdulillah, papan bersih!' : 'Nyawa habis';
   $('status').textContent = title;
   const content = modal(title);
   paragraph(content, won ? 'Sisa nyawa ' + game.lives + ' dari 3.' : 'Coba lagi dan cari panah yang jalurnya bebas.');
+  if (certificate) paragraph(content, 'Kamu sudah menyelesaikan 10 level jenjang ' + tier.name + '.');
   const actions = document.createElement('div');
   actions.className = 'dialog-actions';
   content.append(actions);
-  if (won && mode === 'campaign' && !final) button(actions, 'Level berikutnya →', () => { level++; start(); }, 'accent');
+  if (certificate) button(actions, 'Lihat sertifikat ' + tier.name, () => openCertificate(tier), 'accent');
+  if (won && mode === 'campaign' && level < totalLevels) button(actions, 'Level berikutnya', () => { level++; start(); }, certificate ? 'quiet' : 'accent');
   if (won && mode === 'daily') button(actions, 'Peringkat harian', openLeaderboard, 'accent');
   button(actions, 'Main lagi', () => start(true), won ? 'quiet' : 'accent');
 }
@@ -367,25 +407,28 @@ $('reset').onclick = () => start(true);
 $('levels').onclick = () => {
   if (turning) return;
   const content = modal('Pilih level');
-  for (const first of [1, 4, 8]) {
+  for (const tier of tiers) {
+    const {first, name} = tier;
     const group = document.createElement('section');
     group.className = 'difficulty-group';
     const heading = document.createElement('h3');
-    heading.textContent = difficulty(first).name;
+    heading.textContent = name + ' · ' + completedIn(tier) + ' / ' + levelsPerTier;
     const grid = document.createElement('div');
     grid.className = 'level-grid';
     group.append(heading, grid);
     content.append(group);
-    for (let n = first; n <= totalLevels && difficulty(n).first === first; n++) {
+    for (let n = first; n < first + levelsPerTier; n++) {
       const item = button(grid, String(n), () => { level = n; start(); }, n === level ? 'accent' : 'quiet');
       item.disabled = !levelAvailable(n);
-      item.setAttribute('aria-label', 'Level ' + n + (item.disabled ? ' terkunci' : ''));
+      if (progress.completed.includes(n)) item.classList.add('level-cleared');
+      item.setAttribute('aria-label', 'Level ' + n + (item.disabled ? ' terkunci' : progress.completed.includes(n) ? ' selesai' : ''));
     }
+    if (progress.certificates[first]) button(group, 'Sertifikat ' + name, () => openCertificate(tier), 'quiet').classList.add('certificate-link');
   }
 };
 
 function levelAvailable(n) {
-  if (n === difficulty(n).first || n <= progress.unlocked || progress.games['level-' + n]) return true;
+  if (n === difficulty(n).first || progress.completed.includes(n) || progress.games['level-' + n]) return true;
   return progress.completed?.includes(n - 1) === true;
 }
 

@@ -1,6 +1,6 @@
 # Arah
 
-Puzzle panah PWA dengan 10 level dalam kategori Mudah, Sedang, dan Sulit. Ketuk panah yang jalurnya bebas. Percobaan yang terhalang mengurangi satu nyawa. Jawab soal Juz 29 atau 30 untuk menyingkirkan penghalang, memakai petunjuk, atau menambah satu nyawa saat tersisa satu. Tiga bantuan tersedia per percobaan. Jawaban benar mengurangi satu jatah dan jawaban salah membiarkan jatah tetap. Selesaikan minimal satu soal untuk membuka panah terakhir pada papan baru. Setiap soal menampilkan rujukan dan terjemahan Quran.ai edisi id-id, bersumber dari Quran.com edisi 33.
+Puzzle panah PWA dengan 30 level, 10 untuk setiap kategori Mudah, Sedang, dan Sulit. Ketuk panah yang jalurnya bebas. Percobaan yang terhalang mengurangi satu nyawa. Jawab soal Juz 29 atau 30 untuk menyingkirkan penghalang, memakai petunjuk, atau menambah satu nyawa saat tersisa satu. Tiga bantuan tersedia per percobaan. Jawaban benar mengurangi satu jatah dan jawaban salah membiarkan jatah tetap. Selesaikan minimal satu soal untuk membuka panah terakhir pada papan baru. Setiap soal menampilkan rujukan dan terjemahan Quran.ai edisi id-id, bersumber dari Quran.com edisi 33.
 
 Tombol suara mengatur efek melesat, efek mentok, serta ucapan Alhamdulillah dan Astaghfirullah. Kuis dan audio tersimpan di cache offline setelah pemuatan awal. Tantangan harian menggunakan tanggal WIB. Progres disimpan di browser, dan papan lama tetap dapat diteruskan hingga pemain menekan Ulangi.
 
@@ -17,3 +17,5 @@ Peringkat hari ini menampilkan 20 hasil terbaik berdasarkan sisa nyawa, kemudian
 Untuk hosting dengan peringkat, jalankan `node worker/build.mjs` dan deploy `dist/server/index.js` sebagai Worker ES module. Hubungkan D1 sebagai `DB` dan terapkan migrasi SQL dari folder `drizzle`. Server statis sederhana hanya menjalankan game dan cache offline.
 
 Buka **Profil** di bagian atas untuk menyimpan nama panggilan di perangkat. Nama ini diisi otomatis saat mengirim skor.
+
+Selesaikan semua 10 level dalam satu kategori untuk membuka sertifikat penghargaan dalam format PNG A4. Sertifikat dapat diakses kembali dari menu Level.

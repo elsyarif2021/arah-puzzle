@@ -54,3 +54,6 @@ footer{align-items:center;gap:8px}
 
 .header-actions{display:flex;justify-content:flex-end;gap:7px;flex-wrap:wrap}
 @media(max-width:380px){.header-actions button{padding-inline:9px;font-size:14px}}
+.level-cleared{border-color:#69dac5}
+.certificate-link{margin-top:8px}
+.certificate-preview{display:block;width:100%;height:auto;border-radius:8px;margin:14px 0}
