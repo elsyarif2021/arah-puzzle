@@ -84,7 +84,8 @@ async function leaderboard(request, env) {
       !Number.isInteger(elapsed) || elapsed < 1000 || elapsed > 86400000) return json({error:'Data skor tidak valid.'}, 400);
     const lives = replay(utcDay, moves);
     if (!lives) return json({error:'Skor tidak sesuai dengan papan hari ini.'}, 422);
-    const player = request.headers.get('oai-authenticated-user-id') || device.toLowerCase();
+    // Never trust a caller-supplied identity header on the public endpoint.
+    const player = device.toLowerCase();
     await env.DB.prepare(upsert).bind(date, player, name, lives, elapsed, Date.now()).run();
   } else if (request.method !== 'GET') {
     return json({error:'Metode tidak didukung.'}, 405);
