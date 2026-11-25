@@ -65,7 +65,8 @@ function svg(tag, props, parent) {
 
 function render(focusBoard = false) {
   $('difficulty').textContent = difficulty(level).name;
-  $('clear').hidden = !obstructed || !game.lives || !findBlocker(obstructed, remaining, puzzle.size);
+  const blockedArrow = obstructed && findBlocker(obstructed, remaining, puzzle.size) ? obstructed : null;
+  $('clear').hidden = !blockedArrow || !game.lives;
   $('level-label').textContent = String(level).padStart(2, '0');
   $('count').textContent = game.removed.length + ' / ' + puzzle.paths.length;
   $('progress').max = puzzle.paths.length;
@@ -92,7 +93,7 @@ function render(focusBoard = false) {
     const dx = tip[0] - neck[0], dy = tip[1] - neck[1];
     const x = coord(tip[0]), y = coord(tip[1]);
     const direction = dx ? (dx > 0 ? 'kanan' : 'kiri') : (dy > 0 ? 'bawah' : 'atas');
-    const group = svg('g', {class:'arrow' + (path === highlighted ? ' hinted' : ''), color:colors[index % colors.length], role:'button', tabindex:active ? 0 : -1, 'aria-label':'Panah ' + (index + 1) + ' ke ' + direction}, board);
+    const group = svg('g', {class:'arrow' + (path === highlighted ? ' hinted' : '') + (path === blockedArrow ? ' blocked' : ''), color:colors[index % colors.length], role:'button', tabindex:active ? 0 : -1, 'aria-label':'Panah ' + (index + 1) + ' ke ' + direction}, board);
     const points = path.map(([px,py]) => coord(px) + ',' + coord(py)).join(' ');
     svg('polyline', {points, fill:'none', stroke:'transparent', 'stroke-width':25, 'stroke-linecap':'round', 'stroke-linejoin':'round'}, group);
     svg('polyline', {class:'ink', points, fill:'none', stroke:'currentColor', 'stroke-width':5.5, 'stroke-linecap':'round', 'stroke-linejoin':'round', 'pointer-events':'none'}, group);
@@ -117,9 +118,7 @@ function play(path, group, keyboard = false) {
   if (blocker) {
     obstructed = path;
     game.lives--;
-    speak(false);
-    group.classList.add('blocked');
-    $('status').textContent = 'Jalur terhalang. Satu nyawa berkurang.';
+    group.classList.remove('blocked');
   } else {
     removePath(path);
     if (!remaining.length) {
@@ -137,16 +136,16 @@ function play(path, group, keyboard = false) {
     if (!game.lives || !remaining.length) finish();
   }
   const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
-  if (!blocker) {
-    crawl(path, group, dx, dy, reducedMotion, complete);
-    return;
+  let impactDistance;
+  if (blocker) {
+    const distances = blocker.flatMap(([x, y]) => {
+      const offsetX = x - head[0], offsetY = y - head[1];
+      const ahead = offsetX * dx + offsetY * dy;
+      return ahead > 0 && offsetX * dy === offsetY * dx ? [ahead] : [];
+    });
+    impactDistance = Math.min(...distances) - 4 / spacing;
   }
-  if (reducedMotion) return complete();
-  group.animate([
-    {transform:'translate(0,0)'},
-    {transform:`translate(${dx * 4}px,${dy * 4}px)`},
-    {transform:'translate(0,0)'}
-  ], {duration:400, easing:'ease-in-out'}).finished.then(complete);
+  crawl(path, group, dx, dy, reducedMotion, impactDistance, complete);
 }
 
 function arrowhead(x, y, dx, dy) {
@@ -154,13 +153,15 @@ function arrowhead(x, y, dx, dy) {
   return wing(1) + ' ' + x + ',' + y + ' ' + wing(-1);
 }
 
-function crawl(path, group, dx, dy, reducedMotion, complete) {
+function crawl(path, group, dx, dy, reducedMotion, impactDistance, complete) {
   const points = path.map(([x,y]) => [inset + x * spacing, inset + y * spacing]);
   const [x,y] = points.at(-1);
   const bodyLength = points.length - 1;
   const side = inset * 2 + (puzzle.size - 1) * spacing;
   const edgeDistance = dx > 0 ? side - x : dx < 0 ? x : dy > 0 ? side - y : y;
-  const travel = bodyLength + (edgeDistance + exitGutter + 12) / spacing;
+  const blocked = impactDistance !== undefined;
+  const travel = impactDistance ?? bodyLength + (edgeDistance + exitGutter + 12) / spacing;
+  const trailLength = blocked ? travel * spacing : edgeDistance + exitGutter;
   const [body, head] = group.querySelectorAll('.ink');
   const board = $('board');
   board.append(group);
@@ -168,8 +169,8 @@ function crawl(path, group, dx, dy, reducedMotion, complete) {
   const trail = svg('line', {
     class:'exit-trail',
     x1: x, y1: y,
-    x2: x + dx * (edgeDistance + exitGutter),
-    y2: y + dy * (edgeDistance + exitGutter),
+    x2: x + dx * trailLength,
+    y2: y + dy * trailLength,
     'aria-hidden':'true'
   }, group);
   group.prepend(trail);
@@ -177,7 +178,12 @@ function crawl(path, group, dx, dy, reducedMotion, complete) {
     class:'crawl-segment', r:1.55, 'aria-hidden':'true'
   }, group));
   const startTime = performance.now();
-  const duration = reducedMotion ? 650 : 420 + travel * 155;
+  const forward = blocked ? (reducedMotion ? 220 : 240 + travel * 155) :
+    (reducedMotion ? 650 : 420 + travel * 155);
+  const pause = blocked ? 320 : 0;
+  const retreat = blocked ? (reducedMotion ? 180 : 210 + travel * 105) : 0;
+  const duration = forward + pause + retreat;
+  let hit = false;
 
   function pointAt(distance) {
     if (distance >= bodyLength) {
@@ -192,9 +198,17 @@ function crawl(path, group, dx, dy, reducedMotion, complete) {
 
   function frame(now) {
     if (!group.isConnected) return;
-    const t = Math.min(1, (now - startTime) / duration);
-    const step = travel * t;
-    const stretch = reducedMotion ? 0 : .28 * Math.sin(step * Math.PI);
+    const elapsed = Math.min(duration, now - startTime);
+    if (blocked && elapsed >= forward && !hit) {
+      hit = true;
+      group.classList.add('blocked');
+      speak(false);
+      $('status').textContent = 'Panah mentok. Satu nyawa berkurang.';
+    }
+    const fraction = elapsed <= forward ? elapsed / forward :
+      1 - Math.max(0, elapsed - forward - pause) / retreat;
+    const step = travel * fraction;
+    const stretch = reducedMotion ? 0 : .28 * Math.sin(step * Math.PI) * Math.sin(fraction * Math.PI);
     const tail = Math.max(0, step - stretch);
     const tip = bodyLength + step;
     const segment = [
@@ -209,7 +223,7 @@ function crawl(path, group, dx, dy, reducedMotion, complete) {
       bead.setAttribute('cx', bx);
       bead.setAttribute('cy', by);
     });
-    if (t < 1) requestAnimationFrame(frame);
+    if (elapsed < duration) requestAnimationFrame(frame);
     else complete();
   }
   requestAnimationFrame(frame);
